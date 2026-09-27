@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#4aa3df">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="description" content="Offline water drinking reminder and daily hydration tracker.">
+<title>Hydro Reminder</title>
+<style>
+:root{
+  --bg:#eef8ff;--card:#fff;--text:#17324d;--muted:#6d8294;--accent:#3b9ddd;
+  --accent2:#76c8f4;--border:#d9eaf5;--danger:#e05b63;--shadow:0 10px 30px rgba(34,94,130,.12);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(160deg,#e9f7ff,#f8fcff);color:var(--text);min-height:100vh}
+body.dark{--bg:#0d1821;--card:#142532;--text:#eaf7ff;--muted:#9db2c1;--accent:#55b5ee;--accent2:#2679aa;--border:#294555;--shadow:0 12px 35px rgba(0,0,0,.25);background:#0d1821}
+.app{max-width:720px;margin:auto;padding:18px 16px 35px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:12px}.logo{font-size:38px}
+h1{font-size:25px;margin:0}.subtitle{color:var(--muted);font-size:13px;margin-top:2px}
+button,input,select{font:inherit}
+button{border:0;border-radius:14px;padding:11px 14px;cursor:pointer;background:var(--accent);color:white;font-weight:700}
+.icon-btn{width:44px;height:44px;padding:0;border-radius:13px;background:var(--card);color:var(--text);box-shadow:var(--shadow);font-size:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:22px;padding:18px;margin-bottom:15px;box-shadow:var(--shadow)}
+.hero{text-align:center;padding:24px 18px}
+.progress-wrap{width:190px;height:190px;border-radius:50%;margin:5px auto 18px;background:conic-gradient(var(--accent) var(--progress),var(--border) 0);display:grid;place-items:center}
+.progress-inner{width:156px;height:156px;overflow:hidden;text-align:center;border-radius:50%;background:var(--card);display:flex;flex-direction:column;justify-content:center;align-items:center}
+.big{font-size:31px;font-weight:800;line-height:1.1}.small{font-size:13px;color:var(--muted)}
+.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}
+.drink{font-size:17px;padding:14px 18px;border-radius:16px}
+.secondary{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+input,select{width:100%;padding:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:12px;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+h2{font-size:17px;margin:0 0 14px}
+.stat{background:var(--bg);border-radius:15px;padding:13px}.stat b{display:block;font-size:21px}
+.next{text-align:center}.next-time{font-size:28px;font-weight:800;margin:3px 0}
+.status{font-size:13px;color:var(--muted)}
+.history{max-height:230px;overflow:auto}.entry{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}.entry:last-child{border:0}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:5px}
+.toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+.switch{position:relative;width:50px;height:28px}.switch input{display:none}.slider{position:absolute;inset:0;background:#b7c8d3;border-radius:20px;cursor:pointer}.slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s}.switch input:checked+.slider{background:var(--accent)}.switch input:checked+.slider:before{transform:translateX(22px)}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#17324d;color:#fff;padding:12px 17px;border-radius:13px;font-size:14px;transition:.25s;z-index:10}.toast.show{opacity:1;transform:translateX(-50%)}
+@media(max-width:480px){.grid{grid-template-columns:1fr 1fr}.app{padding:14px 12px 30px}.card{border-radius:19px}}
+
+.row .secondary{flex:1}
+#notificationStatus,#pwaStatus{margin-top:9px;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand"><div class="logo">💧</div><div><h1>Hydro Reminder</h1><div class="subtitle">Your daily water companion</div></div></div>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode">🌙</button>
+</header>
+
+<section class="card hero">
+  <div class="progress-wrap" id="progressRing" style="--progress:0%">
+    <div class="progress-inner">
+      <div class="big" id="remainingCircle">5000</div>
+      <div class="small">ml remaining</div>
+    </div>
+  </div>
+  <div class="big"><span id="remainingTop">5000</span> ml</div>
+  <div class="small">Start with <span id="goalLabel">5000</span> ml and drink it down to 0</div>
+  <br>
+  <div class="row">
+    <button class="drink" data-amount="250">💧 Drank 250 ml</button>
+    <button class="drink" data-amount="500">💧 Drank 500 ml</button>
+  </div>
+  <br>
+  <button class="secondary" id="customBtn">Enter amount I drank</button>
+</section>
+
+<section class="card next">
+  <h2>⏰ Next reminder</h2>
+  <div class="next-time" id="nextTime">--:--</div>
+  <div class="status" id="nextStatus">Set your schedule below.</div>
+</section>
+
+<section class="card">
+  <h2>⚙️ Reminder settings</h2><div class="small" style="margin:-6px 0 14px">Notifications work best when this app is installed as a PWA from HTTPS.</div>
+  <div class="grid">
+    <div><label for="goal">Daily goal (ml)</label><input id="goal" type="number" min="250" step="50"></div>
+    <div><label for="amount">Reminder amount (ml)</label><input id="amount" type="number" min="50" step="50"></div>
+    <div><label for="start">Start time</label><input id="start" type="time"></div>
+    <div><label for="end">End time</label><input id="end" type="time"></div>
+    <div><label for="interval">Every (minutes)</label><input id="interval" type="number" min="15" step="5"></div>
+    <div><label for="sound">Reminder sound</label><select id="sound"><option value="on">On</option><option value="off">Off</option></select></div>
+  </div>
+  <br>
+  <button id="saveSettings">Save settings</button>
+  <div class="toggle"><span>🔔 Browser notifications</span><label class="switch"><input type="checkbox" id="notifications"><span class="slider"></span></label></div>
+  <div class="row">
+    <button class="secondary" id="testNotification">Test notification</button>
+    <button class="secondary" id="testSound">Test sound</button>
+  </div>
+  <div class="small" id="notificationStatus">Checking notification support…</div>
+  <div class="small" id="pwaStatus"></div>
+</section>
+
+<section class="card">
+  <h2>📊 Today</h2>
+  <div class="grid">
+    <div class="stat"><span class="small">Drinks</span><b id="drinkCount">0</b></div>
+    <div class="stat"><span class="small">Remaining</span><b id="remaining">5000 ml</b></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>📝 Today's history</h2>
+  <div class="history" id="history"></div>
+  <br>
+  <button class="secondary" id="resetBtn">Reset today</button>
+</section>
+
+<footer>Hydro Reminder • Offline • Your data stays on this device</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY="hydro_reminder_v1";
+const defaults={goal:2000,amount:250,start:"08:00",end:"22:00",interval:120,sound:"on",dark:false,notifications:false};
+let state=JSON.parse(localStorage.getItem(KEY)||"null")||defaults;
+let todayKey=new Date().toISOString().slice(0,10);
+if(state.date!==todayKey){state.date=todayKey;state.total=0;state.history=[];save()}
+state.total=state.total||0;state.history=state.history||[];
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+const $=id=>document.getElementById(id);
+function fmt(n){return Math.round(n).toLocaleString("it-IT")}
+function render(){
+  $("goal").value=state.goal;$("amount").value=state.amount;$("start").value=state.start;$("end").value=state.end;
+  $("interval").value=state.interval;$("sound").value=state.sound;$("notifications").checked=!!state.notifications;
+  document.body.classList.toggle("dark",!!state.dark);
+  $("themeBtn").textContent=state.dark?"☀️":"🌙";
+
+  const remaining=Math.max(0,state.goal-state.total);
+  const consumedPct=Math.min(100,Math.round(state.total/state.goal*100));
+  const remainingPct=Math.max(0,Math.round(remaining/state.goal*100));
+
+  // The circle represents what is still left to drink.
+  $("progressRing").style.setProperty("--progress",remainingPct+"%");
+  $("remainingCircle").textContent=fmt(remaining);
+  $("remainingTop").textContent=fmt(remaining);
+  $("goalLabel").textContent=fmt(state.goal);
+  $("remaining").textContent=fmt(remaining)+" ml";
+  $("drinkCount").textContent=state.history.length;
+
+  $("history").innerHTML=state.history.length
+    ? state.history.slice().reverse().map(x=>`<div class="entry"><span>💧 ${x.amount} ml</span><span class="small">${x.time}</span></div>`).join("")
+    : '<div class="small">No water logged yet today.</div>';
+
+  if(remaining===0){
+    $("nextStatus").textContent="🎉 Daily goal reached!";
+  }
+  updateNext();
+}
+function toast(t){$("toast").textContent=t;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2200)}
+function addWater(amount){
+  const remaining=Math.max(0,state.goal-state.total);
+  if(remaining<=0){toast("🎉 Daily goal already reached!");return}
+  const actual=Math.min(amount,remaining);
+  state.total+=actual;
+  state.history.push({amount:actual,time:new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})});
+  save();render();
+  toast(`💧 ${actual} ml recorded`);
+}
+document.querySelectorAll(".drink").forEach(b=>b.onclick=()=>addWater(+b.dataset.amount));
+$("customBtn").onclick=()=>{const n=prompt("How many ml did you drink?","250");if(n!==null&&+n>0)addWater(+n)};
+$("saveSettings").onclick=()=>{
+  const goal=+$("goal").value,amount=+$("amount").value,interval=+$("interval").value;
+  if(goal<250||amount<50||interval<15||!$("start").value||!$("end").value){toast("Please check your settings.");return}
+  state.goal=goal;state.amount=amount;state.interval=interval;state.start=$("start").value;state.end=$("end").value;state.sound=$("sound").value;
+  state.total=Math.min(state.total,state.goal);
+  save();render();toast("Settings saved ✓");
+};
+$("themeBtn").onclick=()=>{state.dark=!state.dark;save();render()};
+$("resetBtn").onclick=()=>{if(confirm("Reset today's water history?")){state.total=0;state.history=[];save();render();toast("Today has been reset.")}};
+async function registerServiceWorker(){
+  const secure = location.protocol==="https:" || location.hostname==="localhost";
+  if(!("serviceWorker" in navigator)){
+    $("pwaStatus").textContent="ℹ️ Service workers are not supported in this browser.";
+    return false;
+  }
+  if(!secure){
+    $("pwaStatus").textContent="ℹ️ For background notifications, open the app from HTTPS (for example GitHub Pages) and install it.";
+    return false;
+  }
+  try{
+    await navigator.serviceWorker.register("./sw.js");
+    $("pwaStatus").textContent="✅ Background notification service is ready.";
+    return true;
+  }catch(e){
+    $("pwaStatus").textContent="⚠️ Background notification service could not start on this page.";
+    return false;
+  }
+}
+
+function updateNotificationStatus(){
+  if(!("Notification" in window)){
+    $("notificationStatus").textContent="⚠️ This browser does not support notifications.";
+    return;
+  }
+  const p=Notification.permission;
+  if(location.protocol!=="https:" && location.hostname!=="localhost"){
+    $("notificationStatus").textContent="ℹ️ This downloaded HTML cannot request reliable background notifications. Use the HTTPS/PWA version.";
+  }else if(p==="granted"){
+    $("notificationStatus").textContent="✅ Notifications are allowed on this device.";
+  }else if(p==="denied"){
+    $("notificationStatus").textContent="🚫 Notifications are blocked. Allow them in the browser/site notification settings, then try again.";
+  }else{
+    $("notificationStatus").textContent="🔔 Notifications are not enabled yet. Turn them on and allow permission.";
+  }
+}
+
+async function enableNotifications(){
+  if(!("Notification" in window)){
+    toast("Notifications are not supported here.");
+    return false;
+  }
+  if(location.protocol!=="https:" && location.hostname!=="localhost"){
+    toast("Open the HTTPS/PWA version to use notifications.");
+    updateNotificationStatus();
+    $("notifications").checked=false;
+    return false;
+  }
+  try{
+    const p=Notification.permission==="default" ? await Notification.requestPermission() : Notification.permission;
+    state.notifications=p==="granted";
+    $("notifications").checked=state.notifications;
+    save();
+    updateNotificationStatus();
+    if(state.notifications){
+      await sendNotification("Hydro Reminder","🔔 Notifications are working!");
+      toast("Notifications enabled ✓");
+      return true;
+    }
+    toast(p==="denied" ? "Permission blocked. Check browser settings." : "Permission not granted.");
+    return false;
+  }catch(e){
+    $("notifications").checked=false;
+    state.notifications=false;save();
+    toast("Could not enable notifications.");
+    return false;
+  }
+}
+
+async function sendNotification(title,body){
+  if(!state.notifications || !("Notification" in window) || Notification.permission!=="granted") return;
+  try{
+    if("serviceWorker" in navigator){
+      const reg=await navigator.serviceWorker.ready;
+      if(reg && reg.showNotification){
+        await reg.showNotification(title,{
+          body,
+          icon:"icon-192.png",
+          badge:"icon-192.png",
+          tag:"hydro-reminder",
+          renotify:true,
+          vibrate:[150,80,150],
+          data:{url:"./"}
+        });
+        return;
+      }
+    }
+    new Notification(title,{body});
+  }catch(e){}
+}
+
+$("notifications").onchange=async e=>{
+  if(e.target.checked) await enableNotifications();
+  else{
+    state.notifications=false;save();updateNotificationStatus();
+    toast("Notifications disabled.");
+  }
+};
+
+$("testNotification").onclick=async()=>{
+  if(!state.notifications){
+    const ok=await enableNotifications();
+    if(!ok)return;
+  }else{
+    await sendNotification("Hydro Reminder","💧 This is a test reminder. Time to drink some water!");
+    toast("Test notification sent ✓");
+  }
+};
+
+let audioUnlocked=false;
+function getAudio(){
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;
+    if(!C)return null;
+    if(!window.__hydroAudio)window.__hydroAudio=new C();
+    if(window.__hydroAudio.state==="suspended")window.__hydroAudio.resume();
+    audioUnlocked=true;
+    return window.__hydroAudio;
+  }catch(e){return null}
+}
+
+function beep(){
+  const c=getAudio();
+  if(!c)return;
+  try{
+    const now=c.currentTime;
+    const o=c.createOscillator(),g=c.createGain();
+    o.type="sine";o.frequency.setValueAtTime(880,now);o.frequency.exponentialRampToValueAtTime(660,now+.22);
+    g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.07,now+.02);g.gain.exponentialRampToValueAtTime(.0001,now+.35);
+    o.connect(g);g.connect(c.destination);o.start(now);o.stop(now+.36);
+  }catch(e){}
+}
+
+$("testSound").onclick=()=>{
+  const c=getAudio();
+  if(!c){toast("Sound is not available in this browser.");return}
+  beep();toast("🔊 Test sound played");
+};
+
+registerServiceWorker();
+updateNotificationStatus();
+
+setInterval(()=>{const d=new Date().toISOString().slice(0,10);if(d!==todayKey){todayKey=d;state.date=d;state.total=0;state.history=[];save();render()}reminderCheck();updateNext()},1000);
+render();
+</script>
+</body>
+</html>
